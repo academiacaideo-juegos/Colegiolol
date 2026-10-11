@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Colegio Multiplayer</title>
+<style>
+ *{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#0b1220;color:#fff}
+#canvas-container{position:fixed;inset:0;z-index:1}
+canvas{touch-action:none;display:block}
+#login-overlay{
+  position:fixed;inset:0;z-index:100;
+  display:flex;justify-content:center;align-items:center;
+  background:radial-gradient(circle at 50% 40%,rgba(15,23,42,.35),rgba(15,23,42,.75));
+  backdrop-filter:blur(6px);
+  transition:opacity .6s ease;
+}
+#login-overlay.hidden{opacity:0;pointer-events:none}
+.login-box{
+  width:760px;max-width:calc(100vw - 32px);max-height:calc(100vh - 40px);
+  overflow-y:auto;
+  padding:28px 30px;
+  border-radius:22px;
+  background:linear-gradient(160deg,rgba(30,41,59,.85),rgba(15,23,42,.92));
+  border:1px solid rgba(148,163,184,.25);
+  box-shadow:
+    0 30px 80px rgba(0,0,0,.6),
+    0 0 0 1px rgba(255,255,255,.04) inset,
+    0 -1px 0 rgba(255,255,255,.06) inset;
+  backdrop-filter:blur(24px);
+  animation:slideUp .5s ease both;
+}
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(20px) scale(.98)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.login-logo{text-align:center;margin-bottom:18px}
+.login-logo .icon{font-size:42px;line-height:1;display:block;margin-bottom:8px;filter:drop-shadow(0 6px 18px rgba(129,140,248,.5))}
+.login-logo h1{
+  margin:0;font-size:24px;font-weight:800;letter-spacing:-.5px;
+  background:linear-gradient(135deg,#e0e7ff,#818cf8 60%,#6366f1);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.login-logo p{margin:6px 0 0;font-size:12px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+.login-grid{display:grid;grid-template-columns:1fr 220px;gap:22px;align-items:start}
+@media(max-width:700px){.login-grid{grid-template-columns:1fr}}
+.field{position:relative;margin:12px 0}
+.field label,.role-label,.custom-label{
+  display:block;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
+  color:#94a3b8;font-weight:700;margin-bottom:6px;
+}
+.field input{
+  width:100%;padding:13px 14px;border-radius:12px;
+  background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.2);
+  color:#fff;font-size:14px;font-family:inherit;
+  transition:border-color .15s, box-shadow .15s, background .15s;
+}
+.field input::placeholder{color:#64748b}
+.field input:focus{
+  outline:none;border-color:#818cf8;background:rgba(15,23,42,.9);
+  box-shadow:0 0 0 4px rgba(129,140,248,.15);
+}
+.role-label{margin:14px 0 10px}
+.roles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.role-card,.opt{
+  padding:12px 8px;border-radius:12px;
+  background:rgba(15,23,42,.6);border:1.5px solid rgba(148,163,184,.18);
+  cursor:pointer;text-align:center;transition:all .18s ease;user-select:none;
+}
+.role-card:hover,.opt:hover{transform:translateY(-2px);border-color:rgba(129,140,248,.5);background:rgba(30,41,59,.8)}
+.role-card.selected,.opt.selected{
+  border-color:#818cf8;
+  background:linear-gradient(160deg,rgba(99,102,241,.25),rgba(79,70,229,.15));
+  box-shadow:0 0 0 3px rgba(129,140,248,.15);
+}
+.role-card .emoji{font-size:26px;display:block;margin-bottom:4px}
+.role-card .name{font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:2px}
+.role-card .desc{font-size:9px;color:#94a3b8;line-height:1.3}
+.custom-label{margin:14px 0 8px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{padding:8px 10px;font-size:11px;font-weight:700;color:#e2e8f0}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{
+  width:28px;height:28px;border-radius:50%;cursor:pointer;
+  border:2px solid rgba(255,255,255,.2);transition:transform .15s, box-shadow .15s;
+}
+.swatch:hover{transform:scale(1.1)}
+.swatch.selected{box-shadow:0 0 0 3px #818cf8;border-color:#fff}
+.preview-wrap{
+  background:rgba(15,23,42,.55);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;padding:10px;text-align:center;
+}
+.preview-wrap canvas{width:100%;height:240px;border-radius:12px;background:radial-gradient(circle at 50% 70%,#334155,#0f172a)}
+.preview-wrap p{margin:8px 0 0;font-size:11px;color:#94a3b8}
+#btn-join{
+  width:100%;padding:15px;margin-top:18px;border:none;border-radius:12px;
+  background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;
+  font-size:14px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 8px 24px rgba(99,102,241,.4), 0 1px 0 rgba(255,255,255,.15) inset;
+}
+#btn-join:hover{filter:brightness(1.1)}
+#btn-join:active{transform:translateY(1px)}
+#ui-bar{
+  position:fixed;top:0;left:0;width:100%;
+  background:rgba(15,23,42,.85);backdrop-filter:blur(10px);
+  display:flex;justify-content:space-around;padding:10px 12px;z-index:10;
+  border-bottom:1px solid #334155;font-size:14px;flex-wrap:wrap;gap:6px;
+}
+.stat-item{background:rgba(255,255,255,.05);padding:6px 12px;border-radius:8px;font-weight:600;border:1px solid rgba(255,255,255,.06)}
+.stat-item span{color:#a5b4fc}
+#hint{
+  position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+  background:rgba(15,23,42,.8);padding:8px 16px;border-radius:30px;
+  font-size:12px;color:#cbd5e1;z-index:10;border:1px solid #334155;pointer-events:none;white-space:nowrap;
+}
+@media(max-width:700px){#hint{display:none}}
+</style>
+<script type="importmap">
+{
+  "imports":{
+    "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="icon">🏫</span>
+      <h1>Gestiona tu Colegio</h1>
+      <p>Cooperativo · Multijugador</p>
+    </div>
+    <div class="login-grid">
+      <div>
+        <div class="field">
+          <label>Tu nombre</label>
+          <input id="input-name" type="text" placeholder="Escribe tu nombre..." maxlength="16" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Código de sala</label>
+          <input id="input-room" type="text" placeholder="ej. clase1" maxlength="20" autocomplete="off">
+        </div>
+        <div class="role-label">Elige tu rol</div>
+        <div class="roles" id="roles">
+          <div class="role-card" data-role="director">
+            <span class="emoji">👔</span>
+            <div class="name">Director</div>
+            <div class="desc">Presupuesto y matrículas</div>
+          </div>
+          <div class="role-card" data-role="profesor">
+            <span class="emoji">👩‍🏫</span>
+            <div class="name">Profesor</div>
+            <div class="desc">Clases y educación</div>
+          </div>
+          <div class="role-card" data-role="cocinero">
+            <span class="emoji">🍎</span>
+            <div class="name">Cocinero</div>
+            <div class="desc">Comedor y satisfacción</div>
+          </div>
+        </div>
+        <div class="custom-label">Género</div>
+        <div class="opts" id="opt-gender">
+          <div class="opt selected" data-gender="hombre">Hombre</div>
+          <div class="opt" data-gender="mujer">Mujer</div>
+        </div>
+        <div class="custom-label">Peinado</div>
+        <div class="opts" id="opt-hair">
+          <div class="opt selected" data-hair="corto">Corto</div>
+          <div class="opt" data-hair="despeinado">Despeinado</div>
+          <div class="opt" data-hair="largo">Largo</div>
+          <div class="opt" data-hair="coleta">Coleta</div>
+          <div class="opt" data-hair="moño">Moño</div>
+          <div class="opt" data-hair="mohicano">Mohicano</div>
+        </div>
+        <div class="custom-label">Color de pelo</div>
+        <div class="swatches" id="opt-haircolor">
+          <div class="swatch selected" data-color="0x1a1a1a" style="background:#1a1a1a"></div>
+          <div class="swatch" data-color="0x3b2a1a" style="background:#3b2a1a"></div>
+          <div class="swatch" data-color="0x8b5a2b" style="background:#8b5a2b"></div>
+          <div class="swatch" data-color="0xc4a574" style="background:#c4a574"></div>
+          <div class="swatch" data-color="0xb91c1c" style="background:#b91c1c"></div>
+          <div class="swatch" data-color="0x4f46e5" style="background:#4f46e5"></div>
+          <div class="swatch" data-color="0xdb2777" style="background:#db2777"></div>
+        </div>
+        <div class="custom-label">Outfit</div>
+        <div class="opts" id="opt-outfit">
+          <div class="opt selected" data-outfit="uniforme">Uniforme</div>
+          <div class="opt" data-outfit="casual">Casual</div>
+          <div class="opt" data-outfit="sport">Sport</div>
+          <div class="opt" data-outfit="elegante">Elegante</div>
+        </div>
+      </div>
+      <div class="preview-wrap">
+        <canvas id="avatar-preview" width="400" height="480"></canvas>
+        <p>Tu avatar</p>
+      </div>
+    </div>
+    <button id="btn-join">Entrar al Campus</button>
+  </div>
+</div>
+<div id="ui-bar" style="display:none">
+  <div class="stat-item">📚 Educación: <span id="stat-edu">50</span></div>
+  <div class="stat-item">😊 Satisfacción: <span id="stat-sat">50</span></div>
+  <div class="stat-item">💰 Dinero: $<span id="stat-money">10000</span></div>
+  <div class="stat-item">⭐ Reputación: <span id="stat-rep">50</span></div>
+  <div class="stat-item">👥 Conectados: <span id="stat-players">0</span></div>
+</div>
+<div id="hint">WASD mover · Ratón girar cámara · Rueda zoom</div>
+<script type="module">
+import * as THREE from 'three';
+const urlParams = new URLSearchParams(location.search);
+const roomParam = urlParams.get('sala');
+if(roomParam) document.getElementById('input-room').value = roomParam;
+let socket, scene, camera, renderer;
+let keys = {};
+const playerMeshes = new Map();
+let myId = null;
+let localX = 0, localZ = 0, localRot = 0;
+let localMoving = false;
+let azimuth = 0;
+let elevation = 0.45;
+let distance = 14;
+const cameraTarget = new THREE.Vector3();
+const ROLE_COLORS = {
+  director:  0x3b82f6,
+  profesor:  0x22c55e,
+  cocinero:  0xf59e0b
+};
+const appearance = {
+  gender: 'hombre',
+  hair: 'corto',
+  hairColor: 0x1a1a1a,
+  outfit: 'uniforme'
+};
+let selectedRole = 'director';
+document.querySelectorAll('.role-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedRole = card.dataset.role;
+    rebuildPreview();
+  });
+});
+document.querySelector('.role-card[data-role="director"]').classList.add('selected');
+function bindOptions(selector, key, attr, parseHex){
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll(selector).forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      appearance[key] = parseHex ? parseInt(el.dataset[attr]) : el.dataset[attr];
+      rebuildPreview();
+    });
+  });
+}
+bindOptions('#opt-gender .opt', 'gender', 'gender');
+bindOptions('#opt-hair .opt', 'hair', 'hair');
+bindOptions('#opt-outfit .opt', 'outfit', 'outfit');
+bindOptions('#opt-haircolor .swatch', 'hairColor', 'color', true);
+document.getElementById('btn-join').onclick = () => {
+  const name = document.getElementById('input-name').value.trim();
+  const room = document.getElementById('input-room').value.trim();
+  if(!name || !room){ alert('Introduce tu nombre y el código de sala.'); return; }
+  history.pushState({}, '', `${location.pathname}?sala=${encodeURIComponent(room)}`);
+  document.getElementById('login-overlay').classList.add('hidden');
+  document.getElementById('ui-bar').style.display = 'flex';
+  stopPreview();
+  initGame(name, selectedRole, room);
+};
+/* ============================================================
+   PREVIEW DEL AVATAR
+   ============================================================ */
+let previewScene, previewCam, previewRenderer, previewAvatar, previewRAF;
+function initPreview(){
+  const canvas = document.getElementById('avatar-preview');
+  previewRenderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+  previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  previewRenderer.setSize(200, 240, false);
+  previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  previewScene = new THREE.Scene();
+  previewCam = new THREE.PerspectiveCamera(35, 200/240, 0.1, 20);
+  previewCam.position.set(0, 1.4, 4.2);
+  previewCam.lookAt(0, 1.1, 0);
+  previewScene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.1));
+  const l = new THREE.DirectionalLight(0xffffff, 1.2);
+  l.position.set(2, 4, 3);
+  previewScene.add(l);
+  rebuildPreview();
+  const loop = () => {
+    previewRAF = requestAnimationFrame(loop);
+    if(previewAvatar) previewAvatar.rotation.y += 0.012;
+    previewRenderer.render(previewScene, previewCam);
+  };
+  loop();
+}
+function rebuildPreview(){
+  if(!previewScene) return;
+  if(previewAvatar){
+    previewScene.remove(previewAvatar);
+    previewAvatar = null;
+  }
+  previewAvatar = makeAvatar('Tú', selectedRole, appearance, false);
+  previewScene.add(previewAvatar);
+}
+function stopPreview(){
+  cancelAnimationFrame(previewRAF);
+}
+/* ============================================================
+   INICIALIZACIÓN
+   ============================================================ */
+function initGame(name, role, room){
+  socket = io();
+  socket.emit('join_room', { room, name, role, appearance });
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87c5f0);
+  scene.fog = new THREE.Fog(0x87c5f0, 50, 110);
+  camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 400);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x88a06e, 0.9));
+  const sun = new THREE.DirectionalLight(0xfff2d8, 1.6);
+  sun.position.set(30, 40, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -50;
+  sun.shadow.camera.right = 50;
+  sun.shadow.camera.top = 50;
+  sun.shadow.camera.bottom = -50;
+  sun.shadow.camera.far = 120;
+  scene.add(sun);
+  let cinematicMode = true;
+  let cinematicAngle = 0;
+  window.__cinematic = () => ({ get cinematicMode(){ return cinematicMode; }, set cinematicMode(v){ cinematicMode = v; }, get cinematicAngle(){ return cinematicAngle; }, set cinematicAngle(v){ cinematicAngle = v; }});
+  buildCampus();
+  addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+  let dragging = false, lastX = 0, lastY = 0;
+  renderer.domElement.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  addEventListener('mouseup', () => dragging = false);
+  addEventListener('mousemove', e => {
+    if(!dragging) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    azimuth -= dx * 0.006;
+    elevation = Math.max(0.08, Math.min(1.15, elevation + dy * 0.004));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+  addEventListener('wheel', e => {
+    distance = Math.max(6, Math.min(28, distance + e.deltaY * 0.012));
+  }, { passive:true });
+  let touchX = 0, touchY = 0, touchId = null;
+  renderer.domElement.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0];
+    touchId = t.identifier; touchX = t.clientX; touchY = t.clientY;
+  }, { passive:true });
+  renderer.domElement.addEventListener('touchmove', e => {
+    for(const t of e.changedTouches){
+      if(t.identifier === touchId){
+        const dx = t.clientX - touchX;
+        const dy = t.clientY - touchY;
+        azimuth -= dx * 0.008;
+        elevation = Math.max(0.08, Math.min(1.15, elevation + dy * 0.005));
+        touchX = t.clientX; touchY = t.clientY;
+      }
+    }
+  }, { passive:true });
+  socket.on('update_room', updateRoom);
+  socket.on('player_moved', data => {
+    const p = playerMeshes.get(data.id);
+    if(p){
+      p.targetX = data.x;
+      p.targetZ = data.z;
+      if(typeof data.rot === 'number') p.targetRot = data.rot;
+      p.remoteMoving = true;
+      p.stillTimer = 0;
+    }
+  });
+  socket.on('update_room', () => {
+    cinematicMode = false;
+  });
+  addEventListener('resize', onResize);
+  onResize();
+  const clock = new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    if(cinematicMode){
+      cinematicAngle += dt * 0.15;
+      const r = 55;
+      camera.position.set(Math.sin(cinematicAngle) * r, 20, Math.cos(cinematicAngle) * r);
+      camera.lookAt(0, 4, 0);
+      renderer.render(scene, camera);
+      return;
+    }
+    localMoving = false;
+    if(myId && playerMeshes.has(myId)){
+      const speed = 8 * dt;
+      let mx = 0, mz = 0;
+      if(keys['w'] || keys['arrowup'])    mz -= 1;
+      if(keys['s'] || keys['arrowdown'])  mz += 1;
+      if(keys['a'] || keys['arrowleft'])  mx -= 1;
+      if(keys['d'] || keys['arrowright']) mx += 1;
+      if(mx || mz){
+        const len = Math.hypot(mx, mz);
+        mx /= len; mz /= len;
+        const sin = Math.sin(azimuth), cos = Math.cos(azimuth);
+        const wx = mx * cos - mz * sin;
+        const wz = mx * sin + mz * cos;
+        localX += wx * speed;
+        localZ += wz * speed;
+        const limit = 38;
+        localX = Math.max(-limit, Math.min(limit, localX));
+        localZ = Math.max(-limit, Math.min(limit, localZ));
+        localRot = Math.atan2(wx, wz);
+        localMoving = true;
+        socket.emit('player_move', { x: localX, z: localZ, rot: localRot });
+      }
+      const me = playerMeshes.get(myId);
+      me.group.position.x = localX;
+      me.group.position.z = localZ;
+      me.group.rotation.y = lerpAngle(me.group.rotation.y, localRot, 0.25);
+      updateWalk(me.group, localMoving, dt);
+    }
+    playerMeshes.forEach((v) => {
+      if(v.isLocal) return;
+      const dx = v.targetX - v.group.position.x;
+      const dz = v.targetZ - v.group.position.z;
+      v.group.position.x += dx * 0.2;
+      v.group.position.z += dz * 0.2;
+      v.group.rotation.y = lerpAngle(v.group.rotation.y, v.targetRot, 0.2);
+      const moving = Math.hypot(dx, dz) > 0.015 || v.remoteMoving;
+      if(Math.hypot(dx, dz) < 0.015){
+        v.stillTimer = (v.stillTimer || 0) + dt;
+        if(v.stillTimer > 0.12) v.remoteMoving = false;
+      } else {
+        v.stillTimer = 0;
+      }
+      updateWalk(v.group, moving && v.remoteMoving !== false && Math.hypot(dx, dz) > 0.01, dt);
+    });
+    if(myId && playerMeshes.has(myId)){
+      const me = playerMeshes.get(myId).group;
+      cameraTarget.set(me.position.x, 1.4, me.position.z);
+      const ce = Math.cos(elevation);
+      const se = Math.sin(elevation);
+      const cx = cameraTarget.x + distance * ce * Math.sin(azimuth);
+      const cy = cameraTarget.y + distance * se;
+      const cz = cameraTarget.z + distance * ce * Math.cos(azimuth);
+      camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.25);
+      camera.lookAt(cameraTarget);
+    }
+    renderer.render(scene, camera);
+  }
+  animate();
+}
+function onResize(){
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+function updateWalk(group, moving, dt){
+  const a = group.userData.anim;
+  if(!a) return;
+  if(moving){
+    a.t += dt * 10;
+    const swing = Math.sin(a.t) * 0.85;
+    a.legL.rotation.x = swing;
+    a.legR.rotation.x = -swing;
+    a.armL.rotation.x = -swing * 0.7;
+    a.armR.rotation.x = swing * 0.7;
+  } else {
+    a.t = 0;
+    a.legL.rotation.x *= 0.75;
+    a.legR.rotation.x *= 0.75;
+    a.armL.rotation.x *= 0.75;
+    a.armR.rotation.x *= 0.75;
+  }
+}
+/* ============================================================
+   CAMPUS CARTOON
+   ============================================================ */
+function buildCampus(){
+  const matFloor = new THREE.MeshStandardMaterial({ color:0xb6d69d, roughness:1 });
+  const matPath  = new THREE.MeshStandardMaterial({ color:0xd8c9a6, roughness:1 });
+  const matWall  = new THREE.MeshStandardMaterial({ color:0xf5efe1, roughness:.85 });
+  const matRoof  = new THREE.MeshStandardMaterial({ color:0xb8563f, roughness:.9 });
+  const matWood  = new THREE.MeshStandardMaterial({ color:0x8b5a3c, roughness:.8 });
+  const matDark  = new THREE.MeshStandardMaterial({ color:0x3f4d5e, roughness:.7 });
+  const matGrass = new THREE.MeshStandardMaterial({ color:0x6ea94c, roughness:1 });
+  const matWindow= new THREE.MeshStandardMaterial({ color:0x9fd6f0, roughness:.15, metalness:.4, transparent:true, opacity:.75 });
+  const matDoor  = new THREE.MeshStandardMaterial({ color:0x5c3a24, roughness:.7 });
+  const matTrunk = new THREE.MeshStandardMaterial({ color:0x6b4226, roughness:.9 });
+  const matLeaf  = new THREE.MeshStandardMaterial({ color:0x3c8b3f, roughness:.9 });
+  const matFence = new THREE.MeshStandardMaterial({ color:0xe6e9ee, roughness:.6 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), matGrass);
+  ground.rotation.x = -Math.PI/2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  function path(x, z, w, d){
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), matPath);
+    p.rotation.x = -Math.PI/2;
+    p.position.set(x, 0.02, z);
+    p.receiveShadow = true;
+    scene.add(p);
+  }
+  path(0, 0, 4, 40);
+  path(0, -14, 30, 3);
+  path(0, 12, 20, 3);
+  buildBuilding(0, -22, 26, 10, 7, matWall, matRoof, matWindow, matDoor, matFloor);
+  makeRoof(0, -22, 26, 10, 7, matRoof);
+  buildBuilding(-18, 10, 14, 10, 5.5, matWall, matRoof, matWindow, matDoor, matFloor);
+  makeRoof(-18, 10, 14, 10, 5.5, matRoof);
+  buildBuilding(18, 10, 16, 12, 6.5, matWall, matRoof, matWindow, matDoor, matFloor);
+  makeRoof(18, 10, 16, 12, 6.5, matRoof);
+  buildFence(matFence);
+  const treeSpots = [
+    [-28,-24],[-28,-10],[28,-24],[28,-10],
+    [-28,0],[28,0],[-28,20],[28,20],
+    [-10,-2],[10,-2],[-10,22],[10,22],
+    [-20,-14],[20,-14]
+  ];
+  treeSpots.forEach(([x,z]) => makeTree(x, z, matTrunk, matLeaf));
+  [[-4,-8],[4,-8],[-4,18],[4,18]].forEach(([x,z]) => makeBench(x, z, matWood, matDark));
+  [[-8,-16],[8,-16],[-8,4],[8,4]].forEach(([x,z]) => makeLamp(x, z, matDark));
+  for(let i=0;i<6;i++){
+    makeCloud((Math.random()-0.5)*120, 28 + Math.random()*10, (Math.random()-0.5)*120);
+  }
+}
+function buildBuilding(x, z, w, d, h, matWall, matRoof, matWindow, matDoor, matFloor){
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(w-0.4, 0.2, d-0.4), matFloor);
+  floor.position.set(x, 0.1, z);
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const t = 0.3;
+  function wall(px, pz, sx, sz){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, h, sz), matWall);
+    m.position.set(px, h/2, pz);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+  wall(x, z - d/2, w, t);
+  wall(x - w/2, z, t, d);
+  wall(x + w/2, z, t, d);
+  wall(x - w*0.35, z + d/2, w*0.3, t);
+  wall(x + w*0.35, z + d/2, w*0.3, t);
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(w*0.4, h*0.35, t), matWall);
+  lintel.position.set(x, h - h*0.175, z + d/2);
+  scene.add(lintel);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(2, 2.6, 0.15), matDoor);
+  door.position.set(x, 1.3, z + d/2 + 0.02);
+  scene.add(door);
+  function window(px, pz, ry){
+    const w1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 0.1), matWindow);
+    w1.position.set(px, h*0.6, pz);
+    w1.rotation.y = ry;
+    scene.add(w1);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.75, 1.75, 0.05), matDoor);
+    frame.position.set(px, h*0.6, pz);
+    frame.rotation.y = ry;
+    scene.add(frame);
+  }
+  window(x - w*0.35, z + d/2 + 0.06, 0);
+  window(x + w*0.35, z + d/2 + 0.06, 0);
+  window(x - w/2 - 0.06, z - d*0.25, Math.PI/2);
+  window(x - w/2 - 0.06, z + d*0.25, Math.PI/2);
+  window(x + w/2 + 0.06, z - d*0.25, Math.PI/2);
+  window(x + w/2 + 0.06, z + d*0.25, Math.PI/2);
+  const cornisa = new THREE.Mesh(new THREE.BoxGeometry(w + 0.6, 0.3, d + 0.6), matRoof);
+  cornisa.position.set(x, h + 0.15, z);
+  cornisa.castShadow = true;
+  scene.add(cornisa);
+}
+function makeRoof(x, z, w, d, h, matRoof){
+  const roofH = 2.2;
+  const half = w/2 + 0.4;
+  const slopeLen = Math.hypot(half, roofH);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, 0.2, d + 0.8), matRoof);
+  left.position.set(x - half/2, h + roofH/2, z);
+  left.rotation.z = Math.atan2(roofH, half);
+  left.castShadow = true;
+  scene.add(left);
+  const right = new THREE.Mesh(new THREE.BoxGeometry(slopeLen, 0.2, d + 0.8), matRoof);
+  right.position.set(x + half/2, h + roofH/2, z);
+  right.rotation.z = -Math.atan2(roofH, half);
+  right.castShadow = true;
+  scene.add(right);
+}
+function makeTree(x, z, matTrunk, matLeaf){
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 2.4, 8), matTrunk);
+  trunk.position.set(x, 1.2, z);
+  trunk.castShadow = true;
+  scene.add(trunk);
+  const leaf1 = new THREE.Mesh(new THREE.SphereGeometry(1.7, 12, 10), matLeaf);
+  leaf1.position.set(x, 3.2, z);
+  leaf1.castShadow = true;
+  scene.add(leaf1);
+  const leaf2 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 10), matLeaf);
+  leaf2.position.set(x + 0.8, 3.9, z + 0.3);
+  leaf2.castShadow = true;
+  scene.add(leaf2);
+  const leaf3 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 10), matLeaf);
+  leaf3.position.set(x - 0.9, 3.6, z - 0.4);
+  leaf3.castShadow = true;
+  scene.add(leaf3);
+}
+function makeBench(x, z, matWood, matDark){
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 0.5), matWood);
+  seat.position.set(x, 0.55, z);
+  seat.castShadow = true;
+  scene.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 0.1), matWood);
+  back.position.set(x, 0.85, z - 0.2);
+  back.castShadow = true;
+  scene.add(back);
+  for(const sx of [-1, 1]){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.5), matDark);
+    leg.position.set(x + sx*0.9, 0.275, z);
+    scene.add(leg);
+  }
+}
+function makeLamp(x, z, matDark){
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 4, 8), matDark);
+  pole.position.set(x, 2, z);
+  pole.castShadow = true;
+  scene.add(pole);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 10),
+                new THREE.MeshStandardMaterial({ color:0xfff2c9, emissive:0xffe08a, emissiveIntensity:0.8 }));
+  top.position.set(x, 4.1, z);
+  scene.add(top);
+}
+function makeCloud(x, y, z){
+  const mat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:1 });
+  const g = new THREE.Group();
+  for(let i=0;i<4;i++){
+    const s = 1.6 + Math.random()*1.4;
+    const p = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), mat);
+    p.position.set((Math.random()-0.5)*3.5, (Math.random()-0.5)*0.6, (Math.random()-0.5)*2);
+    g.add(p);
+  }
+  g.position.set(x, y, z);
+  scene.add(g);
+}
+function buildFence(matFence){
+  const half = 40;
+  for(const side of ['top','bottom','left','right']){
+    for(let i = -half; i <= half; i += 4){
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.6, 0.25), matFence);
+      if(side === 'top')    post.position.set(i, 0.8, -half);
+      if(side === 'bottom') post.position.set(i, 0.8,  half);
+      if(side === 'left')   post.position.set(-half, 0.8, i);
+      if(side === 'right')  post.position.set( half, 0.8, i);
+      post.castShadow = true;
+      scene.add(post);
+    }
+  }
+}
+/* ============================================================
+   AVATAR PERSONALIZABLE + ANIMACIÓN
+   ============================================================ */
+function outfitColors(role, look){
+  const accent = ROLE_COLORS[role] || 0x888888;
+  const map = {
+    uniforme: { body: 0xf1f5f9, legs: 0x1e293b, accent },
+    casual:   { body: accent,   legs: 0x334155, accent: 0x0f172a },
+    sport:    { body: 0x0ea5e9, legs: 0x1e3a5f, accent: 0xfacc15 },
+    elegante: { body: 0x1f2937, legs: 0x111827, accent: 0xe5e7eb }
+  };
+  return map[look] || map.uniforme;
+}
+function makeHair(style, color){
+  const mat = new THREE.MeshStandardMaterial({ color, roughness:.85 });
+  const g = new THREE.Group();
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12, 0, Math.PI*2, 0, Math.PI*0.58), mat);
+  cap.position.y = 0.06;
+  cap.castShadow = true;
+  if(style === 'corto'){
+    g.add(cap);
+  } else if(style === 'despeinado'){
+    g.add(cap);
+    for(const [x,y,z,s] of [[-0.18,0.18,0.05,0.14],[0.16,0.22,-0.04,0.13],[0,0.28,0.08,0.12],[-0.08,0.16,-0.16,0.12]]){
+      const b = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), mat);
+      b.position.set(x, y, z);
+      g.add(b);
+    }
+  } else if(style === 'largo'){
+    g.add(cap);
+    const back = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 4, 8), mat);
+    back.position.set(0, -0.15, -0.18);
+    back.castShadow = true;
+    g.add(back);
+    const sideL = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.35, 4, 8), mat);
+    sideL.position.set(-0.28, -0.05, 0);
+    g.add(sideL);
+    const sideR = sideL.clone();
+    sideR.position.x = 0.28;
+    g.add(sideR);
+  } else if(style === 'coleta'){
+    g.add(cap);
+    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.45, 4, 8), mat);
+    tail.position.set(0, -0.05, -0.32);
+    tail.rotation.x = 0.4;
+    g.add(tail);
+  } else if(style === 'moño'){
+    g.add(cap);
+    const bun = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), mat);
+    bun.position.set(0, 0.32, -0.08);
+    g.add(bun);
+  } else if(style === 'mohicano'){
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.28, 0.5), mat);
+    strip.position.set(0, 0.28, 0);
+    g.add(strip);
+    const sides = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12, 0, Math.PI*2, 0, Math.PI*0.45), mat);
+    sides.position.y = 0.02;
+    g.add(sides);
+  } else {
+    g.add(cap);
+  }
+  return g;
+}
+function makeAvatar(name, role, look, addToScene=true){
+  look = look || appearance;
+  const g = new THREE.Group();
+  const colors = outfitColors(role, look.outfit);
+  const female = look.gender === 'mujer';
+  const matSkin = new THREE.MeshStandardMaterial({ color:0xf0c9a0, roughness:.9 });
+  const matBody = new THREE.MeshStandardMaterial({ color:colors.body, roughness:.7 });
+  const matAccent = new THREE.MeshStandardMaterial({ color:colors.accent, roughness:.7 });
+  const matLeg  = new THREE.MeshStandardMaterial({ color:colors.legs, roughness:.85 });
+  const bodyW = female ? 0.38 : 0.44;
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(bodyW, female ? 0.62 : 0.72, 6, 12), matBody);
+  body.position.y = 1.05;
+  body.castShadow = true;
+  g.add(body);
+  const vest = new THREE.Mesh(new THREE.BoxGeometry(female ? 0.62 : 0.72, 0.38, 0.38), matAccent);
+  vest.position.y = 1.22;
+  g.add(vest);
+  if(female && (look.outfit === 'uniforme' || look.outfit === 'elegante')){
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.28, 0.42, 12), matBody);
+    skirt.position.y = 0.72;
+    g.add(skirt);
+  }
+  const hipY = 0.68;
+  const makeLimb = (x, y, radius, len, mat) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, 0);
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, len, 4, 8), mat);
+    mesh.position.y = -len/2 - radius*0.2;
+    mesh.castShadow = true;
+    pivot.add(mesh);
+    g.add(pivot);
+    return pivot;
+  };
+  const legL = makeLimb(-0.16, hipY, 0.13, 0.48, matLeg);
+  const legR = makeLimb( 0.16, hipY, 0.13, 0.48, matLeg);
+  const armL = makeLimb(female ? -0.48 : -0.55, 1.38, 0.11, 0.46, matBody);
+  const armR = makeLimb(female ?  0.48 :  0.55, 1.38, 0.11, 0.46, matBody);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 14), matSkin);
+  head.position.y = 1.85;
+  head.castShadow = true;
+  g.add(head);
+  for(const sx of [-1, 1]){
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8),
+                new THREE.MeshStandardMaterial({ color:0x111111 }));
+    eye.position.set(sx*0.11, 1.88, 0.29);
+    g.add(eye);
+  }
+  const hair = makeHair(look.hair, look.hairColor);
+  hair.position.y = 1.85;
+  g.add(hair);
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(15,23,42,0.85)';
+  roundRect(ctx, 4, 4, 248, 56, 14);
+  ctx.fill();
+  ctx.font = 'bold 30px Segoe UI, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, 128, 34);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false }));
+  label.scale.set(2.2, 0.55, 1);
+  label.position.set(0, 2.7, 0);
+  label.renderOrder = 999;
+  g.add(label);
+  g.userData.anim = { legL, legR, armL, armR, t: 0 };
+  if(addToScene && scene) scene.add(g);
+  return g;
+}
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x, y + h - r);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+function updateRoom(data){
+  document.getElementById('stat-edu').innerText   = data.stats.educacion;
+  document.getElementById('stat-sat').innerText   = data.stats.satisfaccion;
+  document.getElementById('stat-money').innerText = data.stats.dinero;
+  document.getElementById('stat-rep').innerText   = data.stats.reputacion;
+  const ids = Object.keys(data.players);
+  document.getElementById('stat-players').innerText = ids.length;
+  ids.forEach(id => {
+    const p = data.players[id];
+    if(!playerMeshes.has(id)){
+      const avatar = makeAvatar(p.name, p.role, p.appearance);
+      avatar.position.set(p.x, 0, p.z);
+      playerMeshes.set(id, {
+        group: avatar,
+        targetX: p.x,
+        targetZ: p.z,
+        targetRot: p.rot || 0,
+        isLocal: id === socket.id,
+        remoteMoving: false,
+        stillTimer: 0
+      });
+      if(id === socket.id){
+        myId = id;
+        localX = p.x; localZ = p.z;
+      }
+    }
+  });
+  playerMeshes.forEach((v, id) => {
+    if(!data.players[id]){
+      scene.remove(v.group);
+      playerMeshes.delete(id);
+    }
+  });
+}
+function lerpAngle(a, b, t){
+  let d = ((b - a + Math.PI) % (Math.PI*2)) - Math.PI;
+  if(d < -Math.PI) d += Math.PI*2;
+  return a + d * t;
+}
+initPreview();
+</script>
+</body>
+</html>
