@@ -1,0 +1,71 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+app.use(express.static(path.join(__dirname)));
+const rooms = {};
+const DEFAULT_APPEARANCE = {
+  gender: 'mujer',
+  hair: 'largo',
+  hairColor: 0x3b2a1a,
+  outfit: 'uniforme'
+};
+io.on('connection', (socket) => {
+  console.log('Usuario conectado:', socket.id);
+  socket.on('join_room', (data) => {
+    const { room, name, role, appearance } = data;
+    socket.join(room);
+    socket.room = room;
+    socket.playerName = name;
+    socket.playerRole = role;
+    if (!rooms[room]) {
+      rooms[room] = {
+        players: {},
+        stats: { educacion: 50, satisfaccion: 50, dinero: 10000, reputacion: 50 }
+      };
+    }
+    rooms[room].players[socket.id] = {
+      x: (Math.random() - 0.5) * 6,
+      z: (Math.random() - 0.5) * 6,
+      rot: 0,
+      name,
+      role,
+      appearance: appearance || DEFAULT_APPEARANCE
+    };
+    io.to(room).emit('update_room', rooms[room]);
+  });
+  socket.on('player_move', (pos) => {
+    const room = socket.room;
+    if (room && rooms[room] && rooms[room].players[socket.id]) {
+      const p = rooms[room].players[socket.id];
+      p.x = pos.x;
+      p.z = pos.z;
+      if (typeof pos.rot === 'number') p.rot = pos.rot;
+      socket.to(room).emit('player_moved', {
+        id: socket.id,
+        x: pos.x,
+        z: pos.z,
+        rot: p.rot
+      });
+    }
+  });
+  socket.on('disconnect', () => {
+    const room = socket.room;
+    if (room && rooms[room] && rooms[room].players[socket.id]) {
+      delete rooms[room].players[socket.id];
+      if (Object.keys(rooms[room].players).length === 0) {
+        delete rooms[room];
+      } else {
+        io.to(room).emit('update_room', rooms[room]);
+      }
+    }
+    console.log('Usuario desconectado:', socket.id);
+  });
+});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
+});
